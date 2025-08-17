@@ -7,54 +7,71 @@ This module solves a critical security problem in configuration management:
 **separating sensitive data from non-sensitive data** while maintaining a 
 unified configuration structure for application consumption.
 
-## The Security Problem
+**The Security Problem**
 
 In production applications, you need to store:
 - **Non-sensitive config**: Database hosts, timeouts, feature flags (safe to version control)
 - **Sensitive config**: Passwords, API keys, certificates (must NOT be in version control)
 
-## Traditional Problems
+**Traditional Problems**
 
 Without proper separation, developers often:
+
 1. 🚨 **Accidentally commit secrets** to version control
 2. 🔄 **Duplicate config structure** between files (maintenance nightmare)
 3. 🐛 **Manual config assembly** (error-prone, inconsistent)
 4. 🚀 **Complex deployment** (hard to automate, environment-specific)
 
-## The Solution: Structural Merging
+**The Solution: Structural Merging**
 
 This module provides **recursive, structure-aware merging** that:
+
 - ✅ **Preserves data types**: Handles dicts, lists, and nested structures
 - ✅ **Maintains relationships**: Merges corresponding list items by position
 - ✅ **Validates structure**: Ensures configs have compatible schemas
 - ✅ **Prevents corruption**: Immutable operations (returns new objects)
 
-## Example Use Case
+**Example Use Case**
 
-```python
-# config.json (safe to commit)
-{
-    "database": {"host": "prod-db.com", "port": 5432},
-    "users": [{"username": "admin"}, {"username": "app"}]
-}
+.. code-block:: python
 
-# secrets.json (encrypted, never committed) 
-{
-    "database": {"password": "secret123"},
-    "users": [{"password": "admin-pwd"}, {"password": "app-pwd"}]
-}
+    # config.json (safe to commit)
+    {
+        "database": {
+            "host": "prod-db.com",
+            "port": 5432
+        },
+        "users": [
+            {"username": "admin"},
+            {"username": "app"}
+        ]
+    }
 
-# Result after merging
-{
-    "database": {"host": "prod-db.com", "port": 5432, "password": "secret123"},
-    "users": [
-        {"username": "admin", "password": "admin-pwd"},
-        {"username": "app", "password": "app-pwd"}
-    ]
-}
-```
+    # secrets.json (encrypted, never committed)
+    {
+        "database": {
+            "password": "secret123"
+        },
+        "users": [
+            {"password": "admin-pwd"},
+            {"password": "app-pwd"}
+        ]
+    }
 
-## When to Use This Pattern
+    # Result after merging
+    {
+        "database": {
+            "host": "prod-db.com",
+            "port": 5432,
+            "password": "secret123"
+        },
+        "users": [
+            {"username": "admin", "password": "admin-pwd"},
+            {"username": "app", "password": "app-pwd"}
+        ]
+    }
+
+**When to Use This Pattern**
 
 - ✅ **Multi-environment deployments** with sensitive config
 - ✅ **Microservices** with shared config structure
@@ -137,20 +154,18 @@ def deep_merge(
         >>> #         {"username": "bob", "role": "user", "password": "bob-secret"}
         >>> #     ]
         >>> # }
-    
-    Args:
-        data1: Base configuration dictionary (typically non-sensitive config)
-        data2: Override configuration dictionary (typically secrets or environment-specific)
-        _fullpath: Internal parameter for error reporting (do not use)
-        
-    Returns:
-        New dictionary containing the intelligently merged configuration
-        
-    Raises:
-        ValueError: When lists have different lengths (structural mismatch)
-        TypeError: When attempting to merge incompatible data types
-        
-    Note:
+
+    :param data1: Base configuration dictionary (typically non-sensitive config)
+    :param data2: Override configuration dictionary (typically secrets or environment-specific)
+    :param _fullpath: Internal parameter for error reporting (do not use)
+
+    :raises ValueError: When lists have different lengths (structural mismatch)
+    :raises TypeError: When attempting to merge incompatible data types
+
+    :return: New dictionary containing the intelligently merged configuration
+
+    .. note::
+
         **This operation is immutable** - original dictionaries are not modified.
         The function creates deep copies before merging to prevent side effects.
     """
