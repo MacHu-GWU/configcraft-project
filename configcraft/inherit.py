@@ -215,11 +215,59 @@ def apply_inheritance(
     **What it does:**
 
     1. Recursively processes nested _shared sections (deeper ones override shallower ones)
-    2. Applies each JSON path pattern in the _shared section
+    2. Applies each JSON path pattern in the _shared section in definition order
     3. Removes all _shared sections from the final output
     4. Modifies the input data in-place
 
-    **Example**:
+    **Path Execution Order Within Same _shared:**
+
+    Within a single _shared section, paths are processed from top to bottom.
+    If multiple paths affect the same node, the earlier path takes effect due to
+    setdefault behavior. This enables powerful exception-then-default patterns.
+
+    Example - setting defaults with specific exceptions::
+
+        {
+            "_shared": {
+                "*.servers.blue.cpu": 4,    # Exception: blue gets 4 CPU
+                "*.servers.*.cpu": 2        # Default: all others get 2 CPU  
+            },
+            "env": {
+                "servers": {
+                    "blue": {},             # Gets cpu=4 (from first rule)
+                    "green": {}             # Gets cpu=2 (from second rule)
+                }
+            }
+        }
+
+    The exception must be defined before the wildcard pattern to take effect.
+
+    **Child _shared Overrides Parent _shared:**
+
+    Each nested object can have its own _shared section. When both parent and
+    child _shared sections would affect the same node, the child wins due to
+    processing order (children processed before parents).
+
+    Example - nested inheritance hierarchy::
+
+        {
+            "_shared": {
+                "*.servers.*.memory": 1024  # Parent default
+            },
+            "env": {
+                "servers": {
+                    "_shared": {
+                        "*.memory": 2048    # Child override
+                    },
+                    "web": {}               # Gets memory=2048 (child wins)
+                }
+            }
+        }
+
+    This design allows fine-grained control where specific sections can override
+    broader defaults while maintaining the inheritance hierarchy.
+
+    **Basic Example**:
 
     >>> data = {
     ...     "_shared": {
