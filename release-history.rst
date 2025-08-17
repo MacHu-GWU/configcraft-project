@@ -15,6 +15,11 @@ x.y.z (Backlog)
 **Miscellaneous**
 
 
-0.1.1 (1970-01-01)
+0.1.1 (2025-08-17)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - First release
+- Add the following public APIs:
+    - ``configcraft.api.SHARED``
+    - ``configcraft.api.inherit_value``
+    - ``configcraft.api.apply_inheritance``
+    - ``configcraft.api.deep_merge``

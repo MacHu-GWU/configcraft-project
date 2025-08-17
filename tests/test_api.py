@@ -5,6 +5,10 @@ from configcraft import api
 
 def test():
     _ = api
+    _ = api.SHARED
+    _ = api.inherit_value
+    _ = api.apply_inheritance
+    _ = api.deep_merge
 
 
 if __name__ == "__main__":

@@ -50,7 +50,86 @@ Welcome to ``configcraft`` Documentation
 .. image:: https://configcraft.readthedocs.io/en/latest/_static/configcraft-logo.png
     :target: https://configcraft.readthedocs.io/en/latest/
 
-Documentation for ``configcraft``.
+A Python library for DRY (Do not repeat yourself) configuration management with inheritance patterns and secure configuration merging.
+
+📚 Full documentation is available at `HERE <https://configcraft.readthedocs.io/en/latest/>`_
+
+**Key Features:**
+
+- **🔄 Configuration Inheritance**: Use ``_shared`` sections to eliminate duplication across environments
+- **🔒 Secure Config Merging**: Safely combine non-sensitive config with secrets without exposing credentials
+- **🎯 JSON Path Patterns**: Apply defaults with flexible ``*.field`` and ``env.field`` patterns
+- **📋 List Merging**: Intelligently merge lists by position to maintain data relationships
+- **🛡️ Type Safety**: Structure-aware merging with validation and clear error messages
+
+
+Quick Example
+------------------------------------------------------------------------------
+**Configuration Inheritance:**
+
+.. code-block:: python
+
+    from configcraft.api import apply_inheritance
+
+    config = {
+        "_shared": {
+            "*.port": 8080,
+            "*.timeout": 30
+        },
+        "dev": {
+            "host": "localhost"
+        },
+        "prod": {
+            "host": "api.company.com", 
+            "port": 443
+        }
+    }
+
+    apply_inheritance(config)
+    # Result:
+    # {
+    #     "dev": {
+    #         "host": "localhost", 
+    #         "port": 8080, 
+    #         "timeout": 30
+    #     },
+    #     "prod": {
+    #         "host": "api.company.com", 
+    #         "port": 443, 
+    #         "timeout": 30
+    #     }
+    # }
+
+**Secure Configuration Merging:**
+
+.. code-block:: python
+
+    from configcraft.api import deep_merge
+
+    # config.json (safe to commit)
+    base_config = {
+        "database": {
+            "host": "prod-db.com", 
+            "port": 5432
+        }
+    }
+
+    # secrets.json (never commit)
+    secrets = {
+        "database": {
+            "password": "secret123"
+        }
+    }
+
+    final_config = deep_merge(base_config, secrets)
+    # Result:
+    # {
+    #     "database": {
+    #         "host": "prod-db.com", 
+    #         "port": 5432,
+    #         "password": "secret123"
+    #     }
+    # }
 
 
 .. _install:
