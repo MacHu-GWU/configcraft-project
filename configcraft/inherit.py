@@ -15,12 +15,12 @@ duplication and maintenance overhead.
 
 **Solution**
 
-Use a special `_shared` section to define default values that automatically 
+Use a special ``_shared`` section to define default values that automatically
 inherit to other sections, while allowing environment-specific overrides.
 
 **How It Works**
 
-The `_shared` section contains JSON path patterns that specify where default 
+The ``_shared`` section contains JSON path patterns that specify where default
 values should be applied. Values are only set if they don't already exist 
 (no overwriting).
 
@@ -30,7 +30,7 @@ Input configuration::
 
     {
         "_shared": {
-            "*.username": "root",        # Apply to all environments
+            "*.username": "root",       # Apply to all environments
             "*.memory": 2               # Default memory allocation
         },
         "dev": {
@@ -59,10 +59,10 @@ After applying inheritance, becomes::
 
 **JSON Path Patterns**
 
-- `*.field`: Apply to all top-level keys (except _shared)
-- `env.field`: Apply to specific environment
-- `*.db.*.port`: Apply to nested structures with wildcards
-- `env.services.port`: Apply to specific nested path
+- ``*.field``: Apply to all top-level keys (except _shared)
+- ``env.field``: Apply to specific environment
+- ``*.db.*.port``: Apply to nested structures with wildcards
+- ``env.services.port``: Apply to specific nested path
 
 **Key Features**
 
@@ -75,6 +75,9 @@ After applying inheritance, becomes::
 import typing as T
 
 SHARED = "_shared"
+"""
+Special key used to define shared inheritance rules in configuration data.
+"""
 
 _error_tpl = (
     "node at JSON path {_prefix!r} is not a dict or list of dict! "
@@ -85,17 +88,15 @@ _error_tpl = (
 def make_type_error(prefix: str, key: str) -> TypeError:
     """
     Create a descriptive TypeError when trying to set a value on incompatible data types.
-    
-    This helper creates user-friendly error messages when the inheritance process 
-    encounters data that isn't a dict or list of dicts, which are the only 
+
+    This helper creates user-friendly error messages when the inheritance process
+    encounters data that isn't a dict or list of dicts, which are the only
     structures that support key assignment.
-    
-    Args:
-        prefix: The JSON path prefix where the error occurred
-        key: The key we were trying to set
-        
-    Returns:
-        TypeError with descriptive message about the invalid operation
+
+    :param prefix: The JSON path prefix where the error occurred
+    :param key: The key we were trying to set
+
+    :raises TypeError: with descriptive message about the invalid operation
     """
     if prefix == "":
         _prefix = "."
@@ -109,35 +110,49 @@ def inherit_value(
     value: T.Any,
     data: T.Union[T.Dict[str, T.Any], T.List[T.Dict[str, T.Any]]],
     _prefix: T.Optional[str] = None,
-):
+) -> None:
     """
-    Set a default value at a specific JSON path, but **only if it doesn't already exist**.
-    
-    This is the core inheritance mechanism that applies a single shared value to 
-    its target location(s) in the configuration data. It navigates through nested 
-    structures using dot notation and wildcards, but never overwrites existing values.
-    
-    **What it does:**
-    - Follows JSON path patterns like "*.username" or "dev.database.port"
+    Apply a default value to a JSON path pattern, preserving existing values.
+
+    This is the core inheritance mechanism that implements setdefault-like behavior
+    for nested configuration structures. Like dict.setdefault(), it only sets values
+    where keys don't already exist, never overwriting existing configuration.
+
+    **What it does**
+
+    - Follows JSON path patterns like ``"*.username"`` or ``"dev.database.port"``
     - Sets values only where they're missing (non-destructive)
     - Handles wildcards (*) to apply to multiple targets
     - Works with nested dicts and lists of dicts
-    
-    **Examples:**
-    - Path "*.memory" → Sets memory=2 in all top-level environments
-    - Path "dev.db.port" → Sets port=5432 only in dev.db
-    - Path "*.servers.*.cpu" → Sets cpu=1 in all servers across all environments
-    
-    Args:
-        path: JSON path pattern (e.g., "*.username", "dev.db.port")
-        value: The default value to set
-        data: Configuration dict/list to modify in-place
-        _prefix: Internal recursion parameter (do not use)
-        
-    Raises:
-        ValueError: If path ends with "*" (incomplete path)
-        TypeError: If trying to set values on incompatible data types
+
+    **Examples**
+
+    - Path ``"*.memory"`` -> Sets ``memory=2`` in all top-level environments
+    - Path ``"dev.db.port"`` -> Sets ``port=5432`` only in ``dev.db``
+    - Path ``"*.servers.*.cpu"`` -> Sets ``cpu=1`` in all servers across all environments
+
+    :param path: JSON path pattern (e.g., ``"*.username"``, ``"dev.db.port"``)
+    :param value: The default value to set
+    :param data: Configuration dict/list to modify in-place
+    :param _prefix: Internal recursion parameter (do not use)
+
+    :raises ValueError: If path ends with "*" (incomplete path)
+    :raises TypeError: If trying to set values on incompatible data types
+
+    :return: None
+
+    .. important::
+        The input param ``data`` will be modified in-place. If you want to keep
+        the original data, do this before calling this function:
+
+        .. code-block:: python
+
+            import copy
+
+            new_data = copy.deepcopy(data)
+            inherit_value(path, value, new_data)
     """
+    # print(f"{path = }, {value = }, {_prefix = }") # for debug only
     if path.endswith("*"):
         raise ValueError("json path cannot ends with *!")
     if _prefix is None:
@@ -187,42 +202,54 @@ def inherit_value(
             raise make_type_error(_prefix, key)
 
 
-def apply_inheritance(data: dict):
+def apply_inheritance(
+    data: dict[str, T.Any],
+) -> None:
     """
     Transform configuration data by applying all ``_shared`` inheritance rules.
-    
+
     This is the main entry point that processes an entire configuration structure,
     finding all _shared sections and applying their inheritance rules to create
     the final resolved configuration.
-    
+
     **What it does:**
+
     1. Recursively processes nested _shared sections (deeper ones override shallower ones)
     2. Applies each JSON path pattern in the _shared section
     3. Removes all _shared sections from the final output
     4. Modifies the input data in-place
-    
-    **Example:**
-    Input::
-    
-        {
-            "_shared": {"*.memory": 2},
-            "dev": {},
-            "prod": {"memory": 8}
-        }
-    
-    Output::
-    
-        {
-            "dev": {"memory": 2},     # Inherited default
-            "prod": {"memory": 8}     # Kept existing value
-        }
-    
-    Args:
-        data: Configuration dictionary with _shared sections to process
-        
-    Note:
-        Modifies the input dictionary in-place. After calling this function,
-        all _shared sections will be removed and their rules applied.
+
+    **Example**:
+
+    >>> data = {
+    ...     "_shared": {
+    ...         "*.memory": 2
+    ...     },
+    ...     "dev": {},
+    ...     "prod": {
+    ...         "memory": 8
+    ...     }
+    ... }
+    >>> apply_inheritance(data)
+    >>> data
+    {
+        "dev": {"memory": 2},     # Inherited default
+        "prod": {"memory": 8}     # Kept existing value
+    }
+
+    :param data: Configuration dictionary with _shared sections to process
+
+    .. important::
+        The input param ``data`` will be modified in-place, all _shared sections
+        will be removed and their rules applied. If you want to keep the original data,
+        do this before calling this function:
+
+        .. code-block:: python
+
+            import copy
+
+            new_data = copy.deepcopy(data)
+            apply_inheritance(new_data)
     """
     # implement recursion pattern
     for key, value in data.items():
