@@ -15,12 +15,12 @@ duplication and maintenance overhead.
 
 **Solution**
 
-Use a special ``_shared`` section to define default values that automatically
+Use a special ``_defaults`` section to define default values that automatically
 inherit to other sections, while allowing environment-specific overrides.
 
 **How It Works**
 
-The ``_shared`` section contains JSON path patterns that specify where default
+The ``_defaults`` section contains JSON path patterns that specify where default
 values should be applied. Values are only set if they don't already exist 
 (no overwriting).
 
@@ -29,7 +29,7 @@ values should be applied. Values are only set if they don't already exist
 Input configuration::
 
     {
-        "_shared": {
+        "_defaults": {
             "*.username": "root",       # Apply to all environments
             "*.memory": 2               # Default memory allocation
         },
@@ -46,12 +46,12 @@ After applying inheritance, becomes::
 
     {
         "dev": {
-            "username": "root",         # Inherited from _shared
+            "username": "root",         # Inherited from _defaults
             "password": "dev123",       # Original value
-            "memory": 2                 # Inherited from _shared
+            "memory": 2                 # Inherited from _defaults
         },
         "prod": {
-            "username": "root",         # Inherited from _shared
+            "username": "root",         # Inherited from _defaults
             "password": "prod456",      # Original value
             "memory": 8                 # Override (not replaced)
         }
@@ -59,7 +59,7 @@ After applying inheritance, becomes::
 
 **JSON Path Patterns**
 
-- ``*.field``: Apply to all top-level keys (except _shared)
+- ``*.field``: Apply to all top-level keys (except _defaults)
 - ``env.field``: Apply to specific environment
 - ``*.db.*.port``: Apply to nested structures with wildcards
 - ``env.services.port``: Apply to specific nested path
@@ -67,16 +67,16 @@ After applying inheritance, becomes::
 **Key Features**
 
 - Non-destructive: Existing values are never overwritten
-- Recursive: Supports nested _shared sections for fine-grained control
+- Recursive: Supports nested _defaults sections for fine-grained control
 - Flexible: Works with dictionaries and lists of dictionaries
 - Order-aware: Evaluation order matters for overlapping patterns
 """
 
 import typing as T
 
-SHARED = "_shared"
+DEFAULTS = "_defaults"
 """
-Special key used to define shared inheritance rules in configuration data.
+Special key used to define default values that can be inherited by other configuration sections.
 """
 
 _error_tpl = (
@@ -175,7 +175,7 @@ def inherit_value(
     key = parts[0]
     if key == "*":
         for k, v in data.items():
-            if k != SHARED:
+            if k != DEFAULTS:
                 inherit_value(
                     path=".".join(parts[1:]),
                     value=value,
@@ -206,29 +206,29 @@ def apply_inheritance(
     data: dict[str, T.Any],
 ) -> None:
     """
-    Transform configuration data by applying all ``_shared`` inheritance rules.
+    Transform configuration data by applying all ``_defaults`` inheritance rules.
 
     This is the main entry point that processes an entire configuration structure,
-    finding all _shared sections and applying their inheritance rules to create
+    finding all _defaults sections and applying their inheritance rules to create
     the final resolved configuration.
 
     **What it does:**
 
-    1. Recursively processes nested _shared sections (deeper ones override shallower ones)
-    2. Applies each JSON path pattern in the _shared section in definition order
-    3. Removes all _shared sections from the final output
+    1. Recursively processes nested _defaults sections (deeper ones override shallower ones)
+    2. Applies each JSON path pattern in the _defaults section in definition order
+    3. Removes all _defaults sections from the final output
     4. Modifies the input data in-place
 
-    **Path Execution Order Within Same _shared:**
+    **Path Execution Order Within Same _defaults:**
 
-    Within a single _shared section, paths are processed from top to bottom.
+    Within a single _defaults section, paths are processed from top to bottom.
     If multiple paths affect the same node, the earlier path takes effect due to
     setdefault behavior. This enables powerful exception-then-default patterns.
 
     Example - setting defaults with specific exceptions::
 
         {
-            "_shared": {
+            "_defaults": {
                 "*.servers.blue.cpu": 4,    # Exception: blue gets 4 CPU
                 "*.servers.*.cpu": 2        # Default: all others get 2 CPU  
             },
@@ -242,21 +242,21 @@ def apply_inheritance(
 
     The exception must be defined before the wildcard pattern to take effect.
 
-    **Child _shared Overrides Parent _shared:**
+    **Child _defaults Overrides Parent _defaults:**
 
-    Each nested object can have its own _shared section. When both parent and
-    child _shared sections would affect the same node, the child wins due to
+    Each nested object can have its own _defaults section. When both parent and
+    child _defaults sections would affect the same node, the child wins due to
     processing order (children processed before parents).
 
     Example - nested inheritance hierarchy::
 
         {
-            "_shared": {
+            "_defaults": {
                 "*.servers.*.memory": 1024  # Parent default
             },
             "env": {
                 "servers": {
-                    "_shared": {
+                    "_defaults": {
                         "*.memory": 2048    # Child override
                     },
                     "web": {}               # Gets memory=2048 (child wins)
@@ -270,7 +270,7 @@ def apply_inheritance(
     **Basic Example**:
 
     >>> data = {
-    ...     "_shared": {
+    ...     "_defaults": {
     ...         "*.memory": 2
     ...     },
     ...     "dev": {},
@@ -285,10 +285,10 @@ def apply_inheritance(
         "prod": {"memory": 8}     # Kept existing value
     }
 
-    :param data: Configuration dictionary with _shared sections to process
+    :param data: Configuration dictionary with _defaults sections to process
 
     .. important::
-        The input param ``data`` will be modified in-place, all _shared sections
+        The input param ``data`` will be modified in-place, all _defaults sections
         will be removed and their rules applied. If you want to keep the original data,
         do this before calling this function:
 
@@ -301,7 +301,7 @@ def apply_inheritance(
     """
     # implement recursion pattern
     for key, value in data.items():
-        if key == SHARED:
+        if key == DEFAULTS:
             continue
         if isinstance(value, dict):
             apply_inheritance(value)
@@ -310,12 +310,12 @@ def apply_inheritance(
                 if isinstance(item, dict):
                     apply_inheritance(item)
 
-    # try to set shared value
-    has_shared = SHARED in data
-    if has_shared is False:
+    # try to set default values
+    has_defaults = DEFAULTS in data
+    if has_defaults is False:
         return
 
-    # pop the shared data, it is not needed in the final result
-    shared_data = data.pop(SHARED)
-    for path, value in shared_data.items():
+    # pop the defaults data, it is not needed in the final result
+    defaults_data = data.pop(DEFAULTS)
+    for path, value in defaults_data.items():
         inherit_value(path=path, value=value, data=data)

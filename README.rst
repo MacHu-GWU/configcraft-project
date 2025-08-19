@@ -56,7 +56,7 @@ A Python library for DRY (Do not repeat yourself) configuration management with 
 
 **Key Features:**
 
-- **🔄 Configuration Inheritance**: Use ``_shared`` sections to eliminate duplication across environments
+- **🔄 Configuration Inheritance**: Use ``_defaults`` sections to eliminate duplication across environments
 - **🔒 Secure Config Merging**: Safely combine non-sensitive config with secrets without exposing credentials
 - **🎯 JSON Path Patterns**: Apply defaults with flexible ``*.field`` and ``env.field`` patterns
 - **📋 List Merging**: Intelligently merge lists by position to maintain data relationships
@@ -72,7 +72,7 @@ Quick Example
     from configcraft.api import apply_inheritance
 
     config = {
-        "_shared": {
+        "_defaults": {
             "*.port": 8080,
             "*.timeout": 30
         },

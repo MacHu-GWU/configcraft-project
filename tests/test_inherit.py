@@ -267,17 +267,17 @@ class TestInheritValue:
         inherit_value(path="*.key", value="value", data=data)
         assert data == {"env1": {"key": "value"}, "env2": {"key": "value"}}
 
-    def test_star_with_shared_key(self):
-        """Test that star notation properly skips _shared keys."""
+    def test_star_with_defaults_key(self):
+        """Test that star notation properly skips _defaults keys."""
         data = {
-            "_shared": {"some": "config"},
+            "_defaults": {"some": "config"},
             "dev": {},
             "prod": {},
         }
         inherit_value(path="*.memory", value=2, data=data)
 
-        # _shared should not get the inherited value
-        assert "_shared" not in data or "memory" not in data["_shared"]
+        # _defaults should not get the inherited value
+        assert "_defaults" not in data or "memory" not in data["_defaults"]
         assert data["dev"]["memory"] == 2
         assert data["prod"]["memory"] == 2
 
@@ -290,7 +290,7 @@ class TestApplyInheritance:
         apply_inheritance(data)
         assert data == {}
 
-        # Dict with no _shared key
+        # Dict with no _defaults key
         data = {
             "dev": {"key": "value"},
             "prod": {"key": "value"},
@@ -299,20 +299,20 @@ class TestApplyInheritance:
         apply_inheritance(data)
         assert data == original  # Should be unchanged
 
-        # Dict with empty _shared
-        data = {"_shared": {}, "dev": {"key": "value"}}
+        # Dict with empty _defaults
+        data = {"_defaults": {}, "dev": {"key": "value"}}
         apply_inheritance(data)
-        assert data == {"dev": {"key": "value"}}  # _shared removed, no changes applied
+        assert data == {"dev": {"key": "value"}}  # _defaults removed, no changes applied
 
         # Nested empty structures
-        data = {"_shared": {"*.key": "value"}, "env": {"nested": {}}}
+        data = {"_defaults": {"*.key": "value"}, "env": {"nested": {}}}
         apply_inheritance(data)
         assert data == {"env": {"nested": {}, "key": "value"}}
 
     def test_with_nested_lists(self):
         """Test apply_inheritance processes lists properly."""
         data = {
-            "_shared": {"*.items.name": "default"},
+            "_defaults": {"*.items.name": "default"},
             "env": {
                 "items": [
                     {"id": 1},
@@ -355,10 +355,10 @@ class TestApplyInheritance:
 
     def test_complicated_example(self):
         data = {
-            "_shared": {
+            "_defaults": {
                 "*.key2": "value2",
                 "*.a_dict.key2": "value2",
-                # this conflict with dev.servers._shared.*.cpu = 2
+                # this conflict with dev.servers._defaults.*.cpu = 2
                 # child value should override it
                 "*.servers.*.cpu": 1,
                 "*.databases.port": 1,
@@ -369,8 +369,8 @@ class TestApplyInheritance:
                     "key1": "dev_value1",
                 },
                 "servers": {
-                    "_shared": {
-                        # this conflict with _shared.*.servers.*.cpu = 1
+                    "_defaults": {
+                        # this conflict with _defaults.*.servers.*.cpu = 1
                         # child value (THIS ONE) should override it
                         "*.cpu": 2,
                     },
@@ -383,7 +383,7 @@ class TestApplyInheritance:
                 ],
             },
             "prod": {
-                "_shared": {
+                "_defaults": {
                     "databases.port": 3,
                 },
                 "key1": "prod_value1",
@@ -411,7 +411,7 @@ class TestApplyInheritance:
                     "key2": "value2",
                 },
                 "servers": {
-                    # child _shared should override parent _shared
+                    # child _defaults should override parent _defaults
                     "blue": {"cpu": 2},
                     "green": {"cpu": 4},
                 },
